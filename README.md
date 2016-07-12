@@ -8,10 +8,12 @@ This module is written in python 3.5 and uses `requests` library as an essentina
 ## Usage
 
 1. `import` the module into your project
-2. Create new class instance with appropriate parameters. Call `authorize()` method to start connection and get `access_token`. Don't forget to call `close()` to close connection and finish session
+2. Create new class instance with appropriate parameters. Call `authorize()` method to start connection and get `access_token`. Don't forget to call `close()` to close the session.
 ```
 vk = VKAuth(['photos'], '123123', '5.52')
 vk.authorize()
+
+access_token = vk.access_token
 
 # your code goes here
 
