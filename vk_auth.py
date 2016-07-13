@@ -1,5 +1,6 @@
 #coding utf8
 import requests
+import getpass
 from html.parser import HTMLParser
 
 class FormParser(HTMLParser):
@@ -149,7 +150,7 @@ class VKAuth(object):
         if self.pswd == None:
             self.pswd = ''
             while self.pswd.strip() == '':
-                self.pswd = input('Enter the password: ')
+                self.pswd = getpass.getpass('Enter the password: ')
 
         self._submit_form({'email': self.email, 'pass': self.pswd})
         if not self._parse_form():
