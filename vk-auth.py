@@ -57,7 +57,7 @@ class VKAuth(object):
 
     def __init__(self, permissions, app_id, api_v, email=None, pswd=None, two_factor_auth=False, security_code=None, auto_access=True):
         """
-        Args:
+        @args:
             permissions: list of Strings with permissions to get from API
             app_id: (String) vk app id that one can get from vk.com
             api_v: (String) vk API version
@@ -65,8 +65,8 @@ class VKAuth(object):
 
         self.session        = requests.Session()
         self.form_parser    = FormParser()
-        self.user_id        = None
-        self.access_token   = None
+        self._user_id       = None
+        self._access_token  = None
         self.response       = None
 
         self.permissions    = permissions
@@ -81,8 +81,12 @@ class VKAuth(object):
         if security_code != None and two_factor_auth == False:
             raise RuntimeError('Security code provided for non-two-factor authorization')
 
-    def authorize(self):
-
+    def auth(self):
+        """
+            1. Asks vk.com for app authentication for a user
+            2. If user isn't logged in, asks for email and password
+            3. Retreives access token and user id
+        """
         api_auth_url = 'https://oauth.vk.com/authorize'
         app_id = self.app_id
         permissions = self.permissions
@@ -111,13 +115,33 @@ class VKAuth(object):
             # allow vk to use this app and access self.permissions
             self._allow_access()
 
-            # now get access_token and user_id
+            # now get _access_token and _user_id
             self._get_params()
+
+            # close current session
+            self._close()
+
+    def get_token(self):
+        """
+            @return value:
+                None if _access_token == None
+                (String) access_token that was retreived in self.auth() method
+        """
+        return self._access_token
+
+    def get_user_id(self):
+        """
+            @return value:
+                None if _user_id == None
+                (String) _user_id that was retreived in self.auth() method
+        """
+        return self._user_id
 
     def _parse_form(self):
 
         self.form_parser = FormParser()
         parser = self.form_parser
+
         try:
             parser.feed(str(self.response.content))
         except:
@@ -129,13 +153,22 @@ class VKAuth(object):
     def _submit_form(self, *params):
 
         parser = self.form_parser
+
         if parser.method == 'post':
             payload = parser.params
             payload.update(*params)
             try:
                 self.response = self.session.post(parser.url, data=payload)
+            except requests.exceptions.RequestException as err:
+                print("Error: ", err)
+            except requests.exceptions.HTTPError as err:
+                print("Error: ", err)
+            except requests.exceptions.ConnectionError as err:
+                print("Error: ConnectionError\n", err)
+            except requests.exceptions.Timeout as err:
+                print("Error: Timeout\n", err)
             except:
-                print('Runtime Error: couldn\'t make POST request. Check your email and password')
+                print("Unexpecred error occured")
 
         else:
             self.response = None
@@ -153,6 +186,7 @@ class VKAuth(object):
                 self.pswd = getpass.getpass('Enter the password: ')
 
         self._submit_form({'email': self.email, 'pass': self.pswd})
+
         if not self._parse_form():
             raise RuntimeError('No <form> element found. Please, check url address')
 
@@ -170,6 +204,7 @@ class VKAuth(object):
     def _two_fact_auth(self):
 
         prefix = 'https://m.vk.com'
+
         if prefix not in self.form_parser.url:
             self.form_parser.url = prefix + self.form_parser.url
 
@@ -182,6 +217,7 @@ class VKAuth(object):
             raise RuntimeError('No <form> element found. Please, check url address')
 
     def _allow_access(self):
+
         parser = self.form_parser
 
         if 'submit_allow_access' in parser.params and 'grant_access' in parser.url:
@@ -206,40 +242,16 @@ class VKAuth(object):
 
         try:
             params = self.response.url.split('#')[1].split('&')
-            self.access_token = params[0].split('=')[1]
-            self.user_id = params[2].split('=')[1]
-        except IndexError(e):
-            print(e)
-            print('Coudln\'t fetch token')
+            self._access_token = params[0].split('=')[1]
+            self._user_id = params[2].split('=')[1]
+        except IndexError as err:
+            print('Coudln\'t fetch token and user id\n')
+            print(err)
 
-    def kill(self):
-        self.session.close()
-        self.session        = None
-        self.form_parser    = None
-        self.user_id        = None
-        self.access_token   = None
-        self.response       = None
-
-        self.permissions    = None
-        self.api_v          = None
-        self.app_id         = None
-        self.two_factor_auth= None
-        self.security_code  = None
-        self.email          = None
-        self.pswd           = None
-
-    def close(self):
+    def _close(self):
         self.session.close()
         self.response = None
         self.form_parser = None
         self.security_code = None
         self.email = None
         self.pswd = None
-
-
-"""
-    implement reset() for form_parser
-    exception handling
-    make readme more descriptive
-    tune up _get_params method
-"""
